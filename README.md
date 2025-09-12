@@ -34,6 +34,10 @@ XXXX
 - **`computeVocalAcoustics_OW.py`**: Computes vocal acoustic features for speech prosody analysis using Openwillis framework.
   - *Input*: Audio recordings
   - *Output*: Vocal acoustic measurements (fundamental frequency, jitter, shimmer, etc.)
+ 
+-  **`mediapipe_holitstic_extractor.py`**: Extracts face and body landmarks using Google Mediapipe.
+  - *Input*: Video recordings
+  - *Output*: Hholistic landmarks from videos in a directory, saved  in separate .mat files
 
 ## Behavioral Measures
 
@@ -41,6 +45,7 @@ The pipeline generates three main categories of behavioral variables:
 
 1. **Language & Speech Prosody**: Acoustic and linguistic features via Openwillis
 2. **Semantic Content**: Text embeddings using Google's Gecko model (text-embedding-004) to measure semantic typicality against normative baselines
+3. **Landmarks**: Face and body landmarks extracted using mediapipe.
 
 ## Requirements
 
@@ -57,6 +62,7 @@ tqdm==4.67.1
 pathlib2==2.3.7
 argparse==1.4.0
 json5==0.12.0
+mediapipe==0.10.11
 ```
 See `requirements.txt` for the complete dependency list.
 
@@ -86,7 +92,8 @@ Set up API keys for Google Gemini and Hugging Face:
 
 ### 3. Model Setup
 1. **WhisperX**: The script will automatically download the WhisperX model (large-v2) when first run, in the future, this model could be changed in the script if needed.
-2. **Google Gemini**: Ensure you have access to the Gemini API and have set up your API key as described above, the available models in the gemini API may change, so refer to the latest documentation for model options. Other LLMs could be used in place of Gemini if desired, same for embeddings.
+2. **Google Gemini**: Ensure you have access to the Gemini API and have set up your API key as described above, the available models in the gemini API may change, so refer to the latest documentation for model options. Other LLMs could be used in place of Gemini if desired, same for embeddings.]
+
 
 
 ## Usage
@@ -105,6 +112,9 @@ Each script can be run independently, in this order:
 >>python computeSpeechFeatures_OW.py path/to/save_diarized_json path/to/save_speech_features
 
 >>python computeVocalAcoustics_OW.py path/to/save_split_audio path/to/save_acoustic_features
+
+python mediapipe_holitstic_extractor.py path/to/video_files path/to/save_landmarks
+
 ```
 
 
