@@ -100,7 +100,7 @@ Each script can be run independently, in this order:
 
 >>python processDiarizedTranscripts_SplitAudio.py path/to/save_transcripts path/to/save_diarized path/to/save_diarized_json path/to/audio_files path/to/save_split_audio
 
->>python gemini_question_answer_extraction_ToM.py --input_diarized path/to/save_diarized_json --output_dir path/to/save_qa
+>>python gemini_question_answer_extraction_ToM.py path/to/save_diarized_json path/to/save_qa
 
 >>python computeSpeechFeatures_OW.py path/to/save_diarized_json path/to/save_speech_features
 
