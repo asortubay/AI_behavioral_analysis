@@ -1,0 +1,20 @@
+# Core dependencies for AI Behavioral Analysis Pipeline
+# Python version: 3.10.16
+whisperx==3.3.0
+torch==2.5.1+cu124
+torchaudio==2.5.1+cu124
+transformers==4.46.3
+
+# Feature extraction
+openwillis==3.0.5
+
+# Google Gemini integration
+google-genai==1.0.0
+
+# Utilities
+tqdm==4.67.1
+pathlib2==2.3.7
+argparse==1.4.0
+
+# Data handling
+json5==0.12.0
