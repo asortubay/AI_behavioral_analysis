@@ -11,6 +11,9 @@ openwillis==3.0.5
 # Google Gemini integration
 google-genai==1.0.0
 
+# Mediapipe
+mediapipe==0.10.11
+
 # Utilities
 tqdm==4.67.1
 pathlib2==2.3.7
