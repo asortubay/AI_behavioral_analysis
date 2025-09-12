@@ -37,7 +37,7 @@ XXXX
  
 -  **`mediapipe_holitstic_extractor.py`**: Extracts face and body landmarks using Google Mediapipe.
   - *Input*: Video recordings
-  - *Output*: Hholistic landmarks from videos in a directory, saved  in separate .mat files
+  - *Output*: Holistic landmarks from videos in a directory, saved  in separate .mat files
 
 ## Behavioral Measures
 
