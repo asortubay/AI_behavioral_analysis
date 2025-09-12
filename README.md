@@ -59,13 +59,13 @@ pathlib2==2.3.7
 argparse==1.4.0
 json5==0.12.0
 ```
-See `requirements.txt` for complete dependency list.
+See `requirements.txt` for the complete dependency list.
 
 
 ### 1. Python Environment Setup
 1. Clone the repository:
    ```bash
-   git clone <repository_url>
+   git clone https://github.com/asortubay/AI_behavioral_analysis
     ```
 2. Navigate to the project directory:
     ```bash
