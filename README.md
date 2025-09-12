@@ -41,7 +41,6 @@ The pipeline generates three main categories of behavioral variables:
 
 1. **Language & Speech Prosody**: Acoustic and linguistic features via Openwillis
 2. **Semantic Content**: Text embeddings using Google's Gecko model (text-embedding-004) to measure semantic typicality against normative baselines
-3. **Movement**: Facial and body landmarks via Mediapipe Holistic with normalized 3D displacement measures
 
 ## Requirements
 
@@ -103,7 +102,7 @@ Each script can be run independently, in this order:
 
 >>python gemini_question_answer_extraction_ToM.py --input_diarized path/to/save_diarized_json --output_dir path/to/save_qa
 
->>python computeSpeechFeatures_OW.py --input_dir path/to/save_diarized_json --output_dir path/to/save_speech_features
+>>python computeSpeechFeatures_OW.py path/to/save_diarized_json path/to/save_speech_features
 
 >>python computeVocalAcoustics_OW.py path/to/save_split_audio path/to/save_acoustic_features
 ```
