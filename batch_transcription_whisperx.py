@@ -8,7 +8,7 @@ from tqdm import tqdm
 # Set device, batch size, and compute type
 device = "cuda"
 batch_size = 16  # Reduce if low on memory
-compute_type = "int8"  # Change to "int8" if low on GPU memory (may reduce accuracy)
+compute_type = "float16"  # Change to "int8" if low on GPU memory (may reduce accuracy)
 
 def process_wav_file(audio_file, output_dir, model, model_a, metadata):
     # Prepare output paths
