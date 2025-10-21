@@ -6,7 +6,10 @@ This repository contains scripts for processing interview audio/video recordings
 Note that some scripts may require modification based on specific dataset structures, interview contents (e.g., different questions), and desired output features, but the core functionality is provided.
 
 **Paper:**
-XXXX
+Overlap and Differences of Autism and ADHD: Digital Phenotyping of Movement and Communication During Development
+Aimar Silvan, Adriana Di Martino, Michael Milham, Lucas C Parra, Jens Madsen
+doi: https://doi.org/10.1101/2025.10.20.682864 
+
 
 ## Pipeline Overview
 
