@@ -7,7 +7,9 @@ Note that some scripts may require modification based on specific dataset struct
 
 **Paper:**
 Overlap and Differences of Autism and ADHD: Digital Phenotyping of Movement and Communication During Development
+
 Aimar Silvan, Adriana Di Martino, Michael Milham, Lucas C Parra, Jens Madsen
+
 doi: https://doi.org/10.1101/2025.10.20.682864 
 
 
@@ -163,4 +165,9 @@ python mediapipe_holitstic_extractor.py path/to/video_files path/to/save_landmar
 
 ## Reference
 If you use this code, please cite our paper:
-XXXX
+
+Overlap and Differences of Autism and ADHD: Digital Phenotyping of Movement and Communication During Development
+
+Aimar Silvan, Adriana Di Martino, Michael Milham, Lucas C Parra, Jens Madsen
+
+doi: https://doi.org/10.1101/2025.10.20.682864 
