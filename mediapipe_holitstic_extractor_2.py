@@ -331,7 +331,7 @@ def filter_people_by_duration(people_landmarks, fps, min_duration_seconds=5, log
     log(f"Kept {len(filtered_people)} out of {len(people_landmarks)} people after duration filtering", log_file)
     return filtered_people
 
-def save_landmarks_multi_person(people_landmarks, output_subdir, log_file):
+def save_landmarks_multi_person(people_landmarks, output_subdir, log_file, save_segmentation=False):
     """Save landmarks for multiple people separately"""
     if not people_landmarks:
         log(f"No landmark data to save.", log_file)
@@ -362,6 +362,39 @@ def save_landmarks_multi_person(people_landmarks, output_subdir, log_file):
                 }
                 savemat(bbox_output_path, bbox_dict)
                 log(f"Saved bounding boxes for person {person_id} to {bbox_output_path}", log_file)
+            
+            # Save segmentation masks if requested and available
+            if save_segmentation and person_data.get('segmentation_masks'):
+                try:
+                    segmentation_output_path = os.path.join(person_dir, 'segmentation_masks.mat')
+                    frame_nos = np.array([item['frame_no'] for item in person_data['segmentation_masks']])
+                    
+                    # Convert masks to uint8 and compress to save space
+                    log(f"Processing {len(person_data['segmentation_masks'])} segmentation masks for person {person_id}...", log_file)
+                    masks_data = []
+                    for item in person_data['segmentation_masks']:
+                        mask = item['mask']
+                        if mask is not None:
+                            # Convert to binary mask (0 or 255) and compress
+                            binary_mask = (mask > 0.5).astype(np.uint8) * 255
+                            masks_data.append(binary_mask)
+                        else:
+                            # Create empty mask if None
+                            masks_data.append(np.zeros((480, 640), dtype=np.uint8))  # Smaller placeholder
+                    
+                    segmentation_dict = {
+                        'frame_nos': frame_nos,
+                        'segmentation_masks': np.array(masks_data, dtype=np.uint8)
+                    }
+                    savemat(segmentation_output_path, segmentation_dict)
+                    log(f"Saved segmentation masks for person {person_id} to {segmentation_output_path}", log_file)
+                except Exception as e:
+                    log(f"Warning: Could not save segmentation masks for person {person_id}: {e}", log_file)
+            elif person_data.get('segmentation_masks') and not save_segmentation:
+                # Estimate memory usage
+                num_masks = len(person_data['segmentation_masks'])
+                estimated_gb = num_masks * 1920 * 1080 * 4 / (1024**3)
+                log(f"Skipping segmentation masks for person {person_id} (would require ~{estimated_gb:.1f} GB, use --save_segmentation to enable)", log_file)
                 
     except Exception as e:
         log(f"An error occurred while saving multi-person landmark data: {e}", log_file)
@@ -398,14 +431,14 @@ def save_landmarks(landmarks, landmark_type, output_path, log_file):
 
 def init_worker():
     global holistic
-    # Enable refine_face_landmarks to extract iris landmarks
+    # Enable refine_face_landmarks to extract iris landmarks and enable_segmentation for person segmentation
     holistic = mp_holistic.Holistic(
         static_image_mode=False,
         model_complexity=2,
         refine_face_landmarks=True,
-        min_detection_confidence = 0.8,
-        smooth_segmentation = True,
-        min_tracking_confidence = 0.8
+        min_detection_confidence = 0.5,
+        enable_segmentation = True,
+        min_tracking_confidence = 0.5
     )
     log("Holistic model initialized in worker process")
 
@@ -443,14 +476,14 @@ def extract_landmarks_frame(frame_data):
                 static_image_mode=False,
                 model_complexity=2,
                 refine_face_landmarks=True,
-                min_detection_confidence = 0.8,
-                smooth_segmentation = True, #or enable_segmentation
-                min_tracking_confidence = 0.8
+                min_detection_confidence = 0.5,
+                enable_segmentation = True,
+                min_tracking_confidence = 0.5
             )
         
         frame_number, frame, person_tracker = frame_data
         
-        # Detect people in the frame
+        # Detect people in the frame using YOLO
         people_detections = detect_people_in_frame(frame)
         current_people = person_tracker.update(people_detections)
         
@@ -459,7 +492,11 @@ def extract_landmarks_frame(frame_data):
             'people': {}
         }
         
-        # Process each detected person
+        # If no people detected, return empty results
+        if not current_people:
+            return frame_results
+        
+        # Process each person's region separately to extract their landmarks
         for person_id, bbox in current_people.items():
             try:
                 # Crop frame around person with padding for better MediaPipe processing
@@ -475,7 +512,7 @@ def extract_landmarks_frame(frame_data):
                 # This gives us higher precision as MediaPipe focuses only on the person
                 results = holistic.process(frame_rgb)
                 
-                # Extract landmarks in cropped frame
+                # Extract landmarks in cropped frame coordinates
                 face_landmarks = extract_landmarks_from_results(results, 'face_landmarks')
                 pose_landmarks = extract_landmarks_from_results(results, 'pose_landmarks')
                 pose_world_landmarks = extract_pose_world_landmarks(results)
@@ -512,7 +549,7 @@ def extract_landmarks_frame(frame_data):
         traceback.print_exc()
         return {'frame_no': frame_number, 'people': {}}
 
-def process_frames_in_batches(video_path, total_frames, batch_size, num_processes, log_file):
+def process_frames_in_batches(video_path, total_frames, batch_size, num_processes, log_file, save_segmentation=False):
     cap = cv2.VideoCapture(video_path)
     frame_number = 0
     
@@ -520,14 +557,20 @@ def process_frames_in_batches(video_path, total_frames, batch_size, num_processe
     person_tracker = PersonTracker()
     
     # Dictionary to store landmarks for each person
-    people_landmarks = defaultdict(lambda: {
-        'face_landmarks': [],
-        'pose_landmarks': [],
-        'pose_world_landmarks': [],
-        'left_hand_landmarks': [],
-        'right_hand_landmarks': [],
-        'bboxes': []
-    })
+    def create_person_dict():
+        person_dict = {
+            'face_landmarks': [],
+            'pose_landmarks': [],
+            'pose_world_landmarks': [],
+            'left_hand_landmarks': [],
+            'right_hand_landmarks': [],
+            'bboxes': []
+        }
+        if save_segmentation:
+            person_dict['segmentation_masks'] = []
+        return person_dict
+    
+    people_landmarks = defaultdict(create_person_dict)
 
     log("Starting sequential processing with person tracking", log_file)
     
@@ -537,9 +580,9 @@ def process_frames_in_batches(video_path, total_frames, batch_size, num_processe
         static_image_mode=False,
         model_complexity=2,
         refine_face_landmarks=True,
-        min_detection_confidence = 0.8,
-        smooth_segmentation = True,
-        min_tracking_confidence = 0.8
+        min_detection_confidence = 0.5,
+        enable_segmentation = True,
+        min_tracking_confidence = 0.5
     )
     log("Holistic model initialized for main process", log_file)
     
@@ -580,6 +623,12 @@ def process_frames_in_batches(video_path, total_frames, batch_size, num_processe
                     'frame_no': frame_number,
                     'bbox': person_data['bbox']
                 })
+                # Store segmentation mask if requested and available
+                if save_segmentation and person_data.get('segmentation_mask') is not None:
+                    people_landmarks[person_id]['segmentation_masks'].append({
+                        'frame_no': frame_number,
+                        'mask': person_data['segmentation_mask']
+                    })
             
             frame_number += 1
             pbar.update(1)
@@ -590,7 +639,7 @@ def process_frames_in_batches(video_path, total_frames, batch_size, num_processe
     cap.release()
     return people_landmarks
 
-def extract_landmarks(video_path, output_subdir, num_processes=None, batch_size=100):
+def extract_landmarks(video_path, output_subdir, num_processes=None, batch_size=100, save_segmentation=False):
     log_file = os.path.join(output_subdir, 'process_log.txt')
     
     # Check if any person directories already exist
@@ -617,7 +666,7 @@ def extract_landmarks(video_path, output_subdir, num_processes=None, batch_size=
     
     # Process frames and extract landmarks for each person
     people_landmarks = process_frames_in_batches(
-        video_path, total_frames, batch_size, num_processes, log_file)
+        video_path, total_frames, batch_size, num_processes, log_file, save_segmentation)
     
     log(f"Finished processing for {video_path}", log_file)
     log(f"Detected {len(people_landmarks)} people in the video", log_file)
@@ -631,12 +680,12 @@ def extract_landmarks(video_path, output_subdir, num_processes=None, batch_size=
     filtered_people_landmarks = filter_people_by_duration(people_landmarks, fps, min_duration_seconds=5, log_file=log_file)
 
     # Save landmarks for each person (only those that passed filtering)
-    save_landmarks_multi_person(filtered_people_landmarks, output_subdir, log_file)
+    save_landmarks_multi_person(filtered_people_landmarks, output_subdir, log_file, save_segmentation)
 
     del people_landmarks, filtered_people_landmarks
     gc.collect()
 
-def process_videos_in_directory(input_dir, output_dir, num_processes=None, batch_size=100):
+def process_videos_in_directory(input_dir, output_dir, num_processes=None, batch_size=100, save_segmentation=False):
     files = [f for f in os.listdir(input_dir) if os.path.isfile(os.path.join(input_dir, f))]
     total_files = len(files)
 
@@ -666,9 +715,9 @@ def process_videos_in_directory(input_dir, output_dir, num_processes=None, batch
                 if not os.path.exists(mp4_path):
                     log(f"Converting {file} to MP4...", log_file=os.path.join(output_subdir, 'process_log.txt'))
                     convert_video_to_mp4(file_path, mp4_path, os.path.join(output_subdir, 'process_log.txt'))
-                extract_landmarks(mp4_path, output_subdir, num_processes, batch_size)
+                extract_landmarks(mp4_path, output_subdir, num_processes, batch_size, save_segmentation)
             else:
-                extract_landmarks(file_path, output_subdir, num_processes, batch_size)
+                extract_landmarks(file_path, output_subdir, num_processes, batch_size, save_segmentation)
         else:
             log(f"Skipping {file} since it is not a valid video file.")
 
@@ -687,10 +736,11 @@ def main():
     parser.add_argument('output_dir', type=str, help="Directory to save the output landmarks.")
     parser.add_argument('--processes', type=int, default=None, help="Number of processes to use for parallel processing.")
     parser.add_argument('--batch_size', type=int, default=100, help="Number of frames to process in each batch.")
+    parser.add_argument('--save_segmentation', action='store_true', help="Save segmentation masks (WARNING: uses large amounts of memory)")
     args = parser.parse_args()
 
     log(f"Starting process with input directory: {args.input_dir} and output directory: {args.output_dir}")
-    process_videos_in_directory(args.input_dir, args.output_dir, num_processes=args.processes, batch_size=args.batch_size)
+    process_videos_in_directory(args.input_dir, args.output_dir, num_processes=args.processes, batch_size=args.batch_size, save_segmentation=args.save_segmentation)
     log("Processing complete.")
 
 if __name__ == '__main__':

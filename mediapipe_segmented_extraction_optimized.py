@@ -64,7 +64,7 @@ BLUR_KERNEL_SIZE = 101
 BLUR_SIGMA = 50.0
 
 # Optimization parameters
-BATCH_SIZE = 16  # Number of frames to batch for YOLO detection
+BATCH_SIZE = 128  # Number of frames to batch for YOLO detection
 WRITE_BUFFER_SIZE = 30  # Buffer frames before writing to video
 
 
