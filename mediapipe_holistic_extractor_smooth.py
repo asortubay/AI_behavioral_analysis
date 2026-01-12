@@ -75,6 +75,7 @@ def init_holistic():
 		model_complexity=2,
 		refine_face_landmarks=True,
 		min_detection_confidence=0.8,
+		enable_segmentation=True,
 		smooth_segmentation=True,
 		min_tracking_confidence=0.8
 	)
