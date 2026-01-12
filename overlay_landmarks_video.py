@@ -45,14 +45,14 @@ def visibility_color(visibility):
     return (0, int(visibility * 255), int((1.0 - visibility) * 255))
 
 
-def draw_landmarks_set(frame, lmk_array, connections=None):
+def draw_landmarks_set(frame, lmk_array, connections=None, min_visibility=0.5):
     if lmk_array is None:
         return
     h, w, _ = frame.shape
     pixels = []
     for lmk in lmk_array:
         x, y, z, vis = lmk
-        if np.isnan(x) or np.isnan(y):
+        if np.isnan(x) or np.isnan(y) or np.isnan(vis) or vis < min_visibility:
             pixels.append(None)
             continue
         px, py = int(x * w), int(y * h)
@@ -67,7 +67,7 @@ def draw_landmarks_set(frame, lmk_array, connections=None):
                     cv2.line(frame, pa, pb, (180, 180, 180), 1, lineType=cv2.LINE_AA)
 
 
-def overlay_landmarks_on_video(video_path, landmarks_dir, output_path=None):
+def overlay_landmarks_on_video(video_path, landmarks_dir, output_path=None, min_visibility=0.5):
     face_map = load_landmark_file(os.path.join(landmarks_dir, 'face_landmarks.mat'))
     pose_map = load_landmark_file(os.path.join(landmarks_dir, 'pose_landmarks.mat'))
     left_hand_map = load_landmark_file(os.path.join(landmarks_dir, 'left_hand_landmarks.mat'))
@@ -107,10 +107,10 @@ def overlay_landmarks_on_video(video_path, landmarks_dir, output_path=None):
         left_hand_lmk = left_hand_map.get(frame_idx) if left_hand_map else None
         right_hand_lmk = right_hand_map.get(frame_idx) if right_hand_map else None
 
-        draw_landmarks_set(frame, face_lmk, FACE_CONNECTIONS)
-        draw_landmarks_set(frame, pose_lmk, POSE_CONNECTIONS)
-        draw_landmarks_set(frame, left_hand_lmk, HAND_CONNECTIONS)
-        draw_landmarks_set(frame, right_hand_lmk, HAND_CONNECTIONS)
+        draw_landmarks_set(frame, face_lmk, FACE_CONNECTIONS, min_visibility)
+        draw_landmarks_set(frame, pose_lmk, POSE_CONNECTIONS, min_visibility)
+        draw_landmarks_set(frame, left_hand_lmk, HAND_CONNECTIONS, min_visibility)
+        draw_landmarks_set(frame, right_hand_lmk, HAND_CONNECTIONS, min_visibility)
 
         out.write(frame)
         frame_idx += 1
@@ -128,7 +128,7 @@ def is_valid_video_file(filepath):
     return False
 
 
-def process_videos_in_directory(videos_dir, landmarks_root, output_dir=None):
+def process_videos_in_directory(videos_dir, landmarks_root, output_dir=None, min_visibility=0.5):
     output_dir = output_dir or videos_dir
     os.makedirs(output_dir, exist_ok=True)
 
@@ -147,7 +147,7 @@ def process_videos_in_directory(videos_dir, landmarks_root, output_dir=None):
         if os.path.exists(out_path):
             continue
 
-        overlay_landmarks_on_video(video_path, landmarks_dir, out_path)
+        overlay_landmarks_on_video(video_path, landmarks_dir, out_path, min_visibility)
 
 
 def main():
@@ -156,13 +156,14 @@ def main():
     parser.add_argument('landmarks_root', help='Root directory containing per-video landmark subfolders')
     parser.add_argument('--output_dir', help='Where to write overlay videos (defaults to input directory)')
     parser.add_argument('--output', help='Output video path (only used when input_path is a single video)')
+    parser.add_argument('--min_visibility', type=float, default=0.5, help='Only draw landmarks/connections with visibility >= this value')
     args = parser.parse_args()
 
     if os.path.isdir(args.input_path):
-        process_videos_in_directory(args.input_path, args.landmarks_root, args.output_dir)
+        process_videos_in_directory(args.input_path, args.landmarks_root, args.output_dir, args.min_visibility)
         print(f"Finished overlays in {args.output_dir or args.input_path}")
     else:
-        output_path = overlay_landmarks_on_video(args.input_path, args.landmarks_root, args.output)
+        output_path = overlay_landmarks_on_video(args.input_path, args.landmarks_root, args.output, args.min_visibility)
         print(f"Saved overlay video to {output_path}")
 
 
