@@ -78,7 +78,7 @@ python mediapipe_holitstic_extractor_batch.py path/to/video_files path/to/save_l
 
 python mediapipe_holistic_extractor_smooth.py path/to/video_files path/to/save_landmarks
 
-python overlay_landmarks_video.py path/to/video_files path/to/save_landmarks path/to/save_overlaid_videos
+python overlay_landmarks_video.py path/to/video_files path/to/save_landmarks --output_dir path/to/save_overlaid_videos
 
 
 ```
