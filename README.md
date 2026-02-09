@@ -15,11 +15,14 @@ doi: https://doi.org/10.1101/2025.10.20.682864
 
 ## Pipeline Overview
 
-### 1. Landmark Extraction
+### 1. Video Synchronization
+- **`sync_webcam_videos.py`**: Synchronizes two webcam videos using a clap (sharp audio transient) in the first few seconds. Detects the clap onset independently in each audio track, refines alignment with cross-correlation, and exports frame-accurately trimmed videos with identical frame counts. Outputs are saved alongside the originals as `*_synced.avi`, plus a side-by-side verification video.
+
+### 2. Landmark Extraction
 - **`mediapipe_holitstic_extractor_batch.py`**: Extracts face and body landmarks from video recordings using Google Mediapipe, batching frames for optimized processing
 - **`mediapipe_holistic_extractor_smooth.py`**: Extracts face and body landmarks from video recordings using Google Mediapipe, it uses recurrent processing so landmark output is smoother, as current frame predictions use information from previous frames.
 
-### 2. Landmark Overlay
+### 3. Landmark Overlay
 - **`overlay_landmarks_video.py`**: Overlays extracted landmarks on the videos.
 
 ## Behavioral Measures
@@ -33,6 +36,7 @@ This guide will walk you through setting up the necessary environments to run th
 **System Requirements:**
 *   **Python:** 3.10.x
 *   **OS:** Windows, Linux, or macOS
+*   **FFmpeg & FFprobe:** Must be installed and available on PATH (required for `sync_webcam_videos.py`)
 
 ### Step 1: Clone the Repository
 
@@ -56,7 +60,7 @@ This is a separate, lightweight environment used only for running mediapipe extr
 
 2.  **Install Required Packages:**
     ```bash
-    pip install mediapipe==0.10.11 tqdm==4.67.1 pathlib2==2.3.7
+    pip install mediapipe==0.10.11 tqdm==4.67.1 pathlib2==2.3.7 numpy scipy
     ```
 
 ---
@@ -65,8 +69,25 @@ This is a separate, lightweight environment used only for running mediapipe extr
 
 Each script is designed to be run independently. **Remember to activate the correct environment before running a script.**
 
+### 1. Synchronize Two Webcam Videos
 
-### 1. Run the Mediapipe Landmark Extractor
+Activate the `mediapipe_env` for this step. Both input videos must contain a clap (or sharp transient) within the first ~5 seconds.
+
+```bash
+conda activate mediapipe_env
+
+# Edit the video paths at the bottom of the script, then run:
+python sync_webcam_videos.py
+```
+
+**Outputs** (saved alongside the original files):
+- `cam0_..._synced.avi` — trimmed & aligned video 1
+- `cam1_..._synced.avi` — trimmed & aligned video 2
+- `sync_check_side_by_side.avi` — low-res side-by-side for visual verification
+
+Both synced videos are guaranteed to have the **exact same number of frames**.
+
+### 2. Run the Mediapipe Landmark Extractor
 
 Activate the `mediapipe_env` for this step.
 
