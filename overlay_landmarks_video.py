@@ -156,7 +156,7 @@ def main():
     parser.add_argument('landmarks_root', help='Root directory containing per-video landmark subfolders')
     parser.add_argument('--output_dir', help='Where to write overlay videos (defaults to input directory)')
     parser.add_argument('--output', help='Output video path (only used when input_path is a single video)')
-    parser.add_argument('--min_visibility', type=float, default=0.5, help='Only draw landmarks/connections with visibility >= this value')
+    parser.add_argument('--min_visibility', type=float, default=0, help='Only draw landmarks/connections with visibility >= this value')
     args = parser.parse_args()
 
     if os.path.isdir(args.input_path):
