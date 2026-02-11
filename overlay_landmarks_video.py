@@ -4,6 +4,7 @@ import cv2
 import numpy as np
 from scipy.io import loadmat
 import mediapipe as mp
+from tqdm import tqdm
 
 FACE_CONNECTIONS = mp.solutions.face_mesh.FACEMESH_TESSELATION
 POSE_CONNECTIONS = mp.solutions.pose.POSE_CONNECTIONS
@@ -84,36 +85,40 @@ def overlay_landmarks_on_video(video_path, landmarks_dir, output_path=None, min_
     fps = cap.get(cv2.CAP_PROP_FPS) or 30.0
     width = int(cap.get(cv2.CAP_PROP_FRAME_WIDTH))
     height = int(cap.get(cv2.CAP_PROP_FRAME_HEIGHT))
+    total_frames = int(cap.get(cv2.CAP_PROP_FRAME_COUNT))
 
     fourcc = cv2.VideoWriter_fourcc(*'mp4v')
     out = cv2.VideoWriter(output_path, fourcc, fps, (width, height))
 
     frame_idx = 0
-    while True:
-        ret, frame = cap.read()
-        if not ret:
-            break
+    with tqdm(total=total_frames or None, desc=f"Overlay {os.path.basename(video_path)}", unit="frame") as pbar:
+        while True:
+            ret, frame = cap.read()
+            if not ret:
+                break
 
-        if frame is None:
+            if frame is None:
+                frame_idx += 1
+                pbar.update(1)
+                continue
+            if frame.ndim == 2:
+                frame = cv2.cvtColor(frame, cv2.COLOR_GRAY2BGR)
+            elif frame.ndim == 3 and frame.shape[2] == 1:
+                frame = cv2.cvtColor(frame, cv2.COLOR_GRAY2BGR)
+
+            face_lmk = face_map.get(frame_idx) if face_map else None
+            pose_lmk = pose_map.get(frame_idx) if pose_map else None
+            left_hand_lmk = left_hand_map.get(frame_idx) if left_hand_map else None
+            right_hand_lmk = right_hand_map.get(frame_idx) if right_hand_map else None
+
+            draw_landmarks_set(frame, face_lmk, FACE_CONNECTIONS, min_visibility)
+            draw_landmarks_set(frame, pose_lmk, POSE_CONNECTIONS, min_visibility)
+            draw_landmarks_set(frame, left_hand_lmk, HAND_CONNECTIONS, min_visibility)
+            draw_landmarks_set(frame, right_hand_lmk, HAND_CONNECTIONS, min_visibility)
+
+            out.write(frame)
             frame_idx += 1
-            continue
-        if frame.ndim == 2:
-            frame = cv2.cvtColor(frame, cv2.COLOR_GRAY2BGR)
-        elif frame.ndim == 3 and frame.shape[2] == 1:
-            frame = cv2.cvtColor(frame, cv2.COLOR_GRAY2BGR)
-
-        face_lmk = face_map.get(frame_idx) if face_map else None
-        pose_lmk = pose_map.get(frame_idx) if pose_map else None
-        left_hand_lmk = left_hand_map.get(frame_idx) if left_hand_map else None
-        right_hand_lmk = right_hand_map.get(frame_idx) if right_hand_map else None
-
-        draw_landmarks_set(frame, face_lmk, FACE_CONNECTIONS, min_visibility)
-        draw_landmarks_set(frame, pose_lmk, POSE_CONNECTIONS, min_visibility)
-        draw_landmarks_set(frame, left_hand_lmk, HAND_CONNECTIONS, min_visibility)
-        draw_landmarks_set(frame, right_hand_lmk, HAND_CONNECTIONS, min_visibility)
-
-        out.write(frame)
-        frame_idx += 1
+            pbar.update(1)
 
     cap.release()
     out.release()
@@ -133,21 +138,26 @@ def process_videos_in_directory(videos_dir, landmarks_root, output_dir=None, min
     os.makedirs(output_dir, exist_ok=True)
 
     files = [f for f in os.listdir(videos_dir) if os.path.isfile(os.path.join(videos_dir, f))]
-    for file in files:
-        video_path = os.path.join(videos_dir, file)
-        if not is_valid_video_file(video_path):
-            continue
+    with tqdm(total=len(files), desc="Videos", unit="video") as vbar:
+        for file in files:
+            video_path = os.path.join(videos_dir, file)
+            if not is_valid_video_file(video_path):
+                vbar.update(1)
+                continue
 
-        video_name, _ = os.path.splitext(file)
-        landmarks_dir = os.path.join(landmarks_root, video_name)
-        if not os.path.isdir(landmarks_dir):
-            continue
+            video_name, _ = os.path.splitext(file)
+            landmarks_dir = os.path.join(landmarks_root, video_name)
+            if not os.path.isdir(landmarks_dir):
+                vbar.update(1)
+                continue
 
-        out_path = os.path.join(output_dir, f"{video_name}_overlay.mp4")
-        if os.path.exists(out_path):
-            continue
+            out_path = os.path.join(output_dir, f"{video_name}_overlay.mp4")
+            if os.path.exists(out_path):
+                vbar.update(1)
+                continue
 
-        overlay_landmarks_on_video(video_path, landmarks_dir, out_path, min_visibility)
+            overlay_landmarks_on_video(video_path, landmarks_dir, out_path, min_visibility)
+            vbar.update(1)
 
 
 def main():
