@@ -1,7 +1,7 @@
 
 # AI Behavioral Analysis Pipeline
 
-This repository contains scripts for processing interview audio/video recordings to extract behavioral measures for digital phenotyping research. The pipeline implements the methods described in our research paper for transcription, diarization, question-answer extraction, and feature embedding.
+This repository contains scripts for processing interview audio/video recordings to extract behavioral measures for digital phenotyping research. The current codebase focuses on video synchronization and Mediapipe landmark extraction/overlay.
 
 Note that some scripts may require modification based on specific dataset structures, interview contents (e.g., different questions), and desired output features, but the core functionality is provided.
 
@@ -60,7 +60,7 @@ This is a separate, lightweight environment used only for running mediapipe extr
 
 2.  **Install Required Packages:**
     ```bash
-    pip install mediapipe==0.10.11 tqdm==4.67.1 pathlib2==2.3.7 numpy scipy
+    pip install -r requirements.txt
     ```
 
 ---
