@@ -16,7 +16,7 @@ doi: https://doi.org/10.1101/2025.10.20.682864
 ## Pipeline Overview
 
 ### 1. Video Synchronization
-- **`sync_webcam_videos.py`**: Synchronizes two webcam videos using a clap (sharp audio transient) in the first few seconds. Detects the clap onset independently in each audio track, refines alignment with cross-correlation, and exports frame-accurately trimmed videos with identical frame counts. Outputs are saved alongside the originals as `*_synced.avi`, plus a side-by-side verification video.
+- **`sync_webcam_videos.py`**: Synchronizes two webcam videos using a visible and audible "clap" (sharp audio transient) recorded at the beginning of the session. The script detects the clap onset in each audio track, aligns them, and exports frame-accurately trimmed videos with identical frame counts.
 
 ### 2. Landmark Extraction
 - **`mediapipe_holitstic_extractor_batch.py`**: Extracts face and body landmarks from video recordings using Google Mediapipe, batching frames for optimized processing
@@ -71,21 +71,43 @@ Each script is designed to be run independently. **Remember to activate the corr
 
 ### 1. Synchronize Two Webcam Videos
 
-Activate the `mediapipe_env` for this step. Both input videos must contain a clap (or sharp transient) within the first ~5 seconds.
+This step ensures your multi-camera setup is perfectly aligned in time, which is critical for behavioral analysis.
 
-```bash
-conda activate mediapipe_env
+#### A. Recording Procedure
+1.  Start recording on both cameras.
+2.  **Wait a few seconds**, then perform a loud, sharp **CLAP** clearly visible to both cameras. This serves as the synchronization signal.
+3.  Continue with your interview or session.
+4.  Ensure the clap happens within the first 10 seconds of the video.
 
-# Edit the video paths at the bottom of the script, then run:
-python sync_webcam_videos.py
-```
+#### B. Running the Synchronization Script
 
-**Outputs** (saved alongside the original files):
-- `cam0_..._synced.avi` — trimmed & aligned video 1
-- `cam1_..._synced.avi` — trimmed & aligned video 2
-- `sync_check_side_by_side.avi` — low-res side-by-side for visual verification
+1.  **Activate the environment:**
+    ```bash
+    conda activate mediapipe_env
+    ```
 
-Both synced videos are guaranteed to have the **exact same number of frames**.
+2.  **Edit the script configuration:**
+    Open `sync_webcam_videos.py` in your editor. Scroll to the bottom and update the file paths in the `if __name__ == "__main__":` block to point to your video files:
+
+    ```python
+    if __name__ == "__main__":
+        video_1_path = r"C:\path\to\your\video_cam0.mkv"
+        video_2_path = r"C:\path\to\your\video_cam1.mkv"
+        
+        sync_and_crop_videos(video_1_path, video_2_path)
+    ```
+
+3.  **Run the script:**
+    ```bash
+    python sync_webcam_videos.py
+    ```
+
+**What happens next?**
+The script will extract audio, detect the clap, calculate the time offset, and re-export the videos.
+
+**Outputs** (saved in the same folder as your input videos):
+- `*_synced.avi`: The trimmed and aligned video files. They will have the **exact same number of frames**.
+- `sync_check_side_by_side.avi`: A side-by-side video of the two synced outputs. Open this file to visually verify that the clap happens at the exact same moment in both views.
 
 ### 2. Run the Mediapipe Landmark Extractor
 
