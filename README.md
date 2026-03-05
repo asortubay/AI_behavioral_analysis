@@ -6,11 +6,11 @@ This repository contains scripts for processing interview audio/video recordings
 Note that some scripts may require modification based on specific dataset structures, interview contents (e.g., different questions), and desired output features, but the core functionality is provided.
 
 **Paper:**
-Overlap and Differences of Autism and ADHD: Digital Phenotyping of Movement and Communication During Development
+Large-Scale Assessment of Language, Speech, and Movement in Autism and ADHD with AI
 
-Aimar Silvan, Adriana Di Martino, Michael Milham, Lucas C Parra, Jens Madsen
+Aimar Silvan, Lucas C Parra, Adriana Di Martino, Michael Milham, Jens Madsen
 
-doi: https://doi.org/10.1101/2025.10.20.682864 
+doi: [https://www.biorxiv.org/content/10.1101/2025.10.20.682864v2](https://www.biorxiv.org/content/10.1101/2025.10.20.682864v2)
 
 
 ## Pipeline Overview
@@ -166,8 +166,8 @@ python mediapipe_holitstic_extractor.py path/to/video_files path/to/save_landmar
 ## Reference
 If you use this code, please cite our paper:
 
-Overlap and Differences of Autism and ADHD: Digital Phenotyping of Movement and Communication During Development
+Large-Scale Assessment of Language, Speech, and Movement in Autism and ADHD with AI
 
-Aimar Silvan, Adriana Di Martino, Michael Milham, Lucas C Parra, Jens Madsen
+Aimar Silvan, Lucas C Parra, Adriana Di Martino, Michael Milham, Jens Madsen
 
-doi: https://doi.org/10.1101/2025.10.20.682864 
+doi: [https://www.biorxiv.org/content/10.1101/2025.10.20.682864v2](https://www.biorxiv.org/content/10.1101/2025.10.20.682864v2)
