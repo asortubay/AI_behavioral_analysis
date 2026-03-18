@@ -393,7 +393,7 @@ def _truncate_to_n_frames(path: str, n_frames: int) -> None:
 # ---------------------------------------------------------------------------
 
 if __name__ == "__main__":
-    video_1_path = r"C:\Users\Aimar\Downloads\sam-mediapipe-tracking\Aimar's calibration\Videos\calibration_cam0_2026-02-11 10-39-29.mkv"
-    video_2_path = r"C:\Users\Aimar\Downloads\sam-mediapipe-tracking\Aimar's calibration\Videos\calibration_cam1_2026-02-11 10-39-29.mkv"
+    video_1_path = r"C:\Users\Aimar\Downloads\sam-mediapipe-tracking\Aimar's calibration\Videos\cam0_2026-02-25 16-28-25.mkv"
+    video_2_path = r"C:\Users\Aimar\Downloads\sam-mediapipe-tracking\Aimar's calibration\Videos\cam1_2026-02-25 16-28-25.mkv"
 
     sync_and_crop_videos(video_1_path, video_2_path)

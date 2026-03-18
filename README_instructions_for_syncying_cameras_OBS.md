@@ -63,7 +63,7 @@ When setting up your Source Record filters, ensure you are using a **Constant Bi
 
 To get the tightest possible synchronization and prevent "drift" (where audio and video slowly separate over time) or "jitter" (variable frame rates), you need to force your hardware to march to the same beat as OBS.
 
-### Phase 1: The "Drift Killer" (Audio Sample Rates)
+### Phase 1: Audio Sample Rates
 The #1 cause of gradual desync over long recordings is a mismatch in sample rates (e.g., your mic is 44.1 kHz and OBS is 48 kHz).
 
 1.  **Check OBS Settings:**
@@ -77,7 +77,7 @@ The #1 cause of gradual desync over long recordings is a mismatch in sample rate
     *   **Crucial:** Ensure the "Default Format" matches your OBS setting exactly (e.g., 2 channel, 16 bit, 48000 Hz).
     *   Repeat this for every audio device you are using.
 
-### Phase 2: Webcam Discipline (Forcing Constant Frame Rate)
+### Phase 2: Webcam Frame Rate
 Webcams are "smart" devices that will sacrifice frame rate to get a brighter image. This creates Variable Frame Rate (VFR) footage, which is a nightmare for sync. You must make them "dumb" and consistent.
 
 1.  **Disable "Low Light Compensation":**
