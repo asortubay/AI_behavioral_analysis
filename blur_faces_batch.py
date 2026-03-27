@@ -11,7 +11,7 @@ def get_args():
     parser.add_argument('--input_dir', type=str, required=True, help='Directory containing input videos')
     parser.add_argument('--output_dir', type=str, required=True, help='Directory to save processed videos')
     parser.add_argument('--model_selection', type=int, default=1, help='0 for short-range (within 2 meters), 1 for full-range (within 5 meters)')
-    parser.add_argument('--min_detection_confidence', type=float, default=0.5, help='Minimum confidence value ([0.0, 1.0]) for face detection to be considered successful.')
+    parser.add_argument('--min_detection_confidence', type=float, default=0.01, help='Minimum confidence value ([0.0, 1.0]) for face detection to be considered successful.')
     return parser.parse_args()
 
 def is_valid_video_file(filepath):
@@ -34,14 +34,30 @@ def blur_face(image, detection, mp_face_detection):
     # Calculate pixel coordinates
     x = int(bboxC.xmin * w)
     y = int(bboxC.ymin * h)
-    width = int(bboxC.width * w)
-    height = int(bboxC.height * h)
+    w_box = int(bboxC.width * w)
+    h_box = int(bboxC.height * h)
+
+    # Expand the bounding box
+    expansion_factor = 0.5
+    padding_x = int(w_box * expansion_factor)
+    padding_y = int(h_box * expansion_factor)
     
-    # Ensure coordinates are within image bounds
-    x = max(0, x)
-    y = max(0, y)
-    width = min(w - x, width)
-    height = min(h - y, height)
+    x1 = x - padding_x
+    y1 = y - padding_y
+    x2 = x + w_box + padding_x
+    y2 = y + h_box + padding_y
+
+    # Clamp coordinates to image bounds
+    x1 = max(0, x1)
+    y1 = max(0, y1)
+    x2 = min(w, x2)
+    y2 = min(h, y2)
+    
+    # Recalculate x, y, width, height for ROI extraction
+    x = x1
+    y = y1
+    width = x2 - x1
+    height = y2 - y1
     
     if width > 0 and height > 0:
         # Extract the region of interest (ROI)
@@ -176,9 +192,13 @@ def main():
         if is_valid_video_file(input_path):
             # Construct output filename
             filename, ext = os.path.splitext(file)
-            output_filename = f"{filename}_blurred.mp4" # Force mp4 for now
+            output_filename = f"{filename}.mp4" # Force mp4 for now
             output_path = os.path.join(args.output_dir, output_filename)
             
+            if os.path.exists(output_path):
+                print(f"Skipping existing file: {output_filename}")
+                continue
+
             process_video(input_path, output_path, args)
         else:
              print(f"Skipping non-video file: {file}")

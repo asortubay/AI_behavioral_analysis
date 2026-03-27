@@ -1,5 +1,6 @@
 import os
 import argparse
+import subprocess
 import cv2
 import numpy as np
 from scipy.io import loadmat
@@ -78,6 +79,9 @@ def overlay_landmarks_on_video(video_path, landmarks_dir, output_path=None, min_
         base, ext = os.path.splitext(video_path)
         output_path = f"{base}_overlay{ext or '.mp4'}"
 
+    # Use a temporary file for the video-only output so we can merge audio later
+    temp_output_path = f"{output_path}.temp.mp4"
+
     cap = cv2.VideoCapture(video_path)
     if not cap.isOpened():
         raise RuntimeError(f"Could not open video: {video_path}")
@@ -88,7 +92,7 @@ def overlay_landmarks_on_video(video_path, landmarks_dir, output_path=None, min_
     total_frames = int(cap.get(cv2.CAP_PROP_FRAME_COUNT))
 
     fourcc = cv2.VideoWriter_fourcc(*'mp4v')
-    out = cv2.VideoWriter(output_path, fourcc, fps, (width, height))
+    out = cv2.VideoWriter(temp_output_path, fourcc, fps, (width, height))
 
     frame_idx = 0
     with tqdm(total=total_frames or None, desc=f"Overlay {os.path.basename(video_path)}", unit="frame") as pbar:
@@ -122,6 +126,36 @@ def overlay_landmarks_on_video(video_path, landmarks_dir, output_path=None, min_
 
     cap.release()
     out.release()
+
+    # Attempt to merge audio from original video using ffmpeg
+    try:
+        # Check if output path exists and remove it to avoid ffmpeg prompt if -y fails for some reason
+        if os.path.exists(output_path):
+            os.remove(output_path)
+            
+        subprocess.run([
+            "ffmpeg", "-y",
+            "-i", temp_output_path,   # Input 0: processed video
+            "-i", video_path,         # Input 1: original video (audio source)
+            "-c:v", "copy",           # Copy video stream
+            "-c:a", "aac",            # Encode audio to AAC
+            "-map", "0:v:0",          # Use video from input 0
+            "-map", "1:a:0",          # Use audio from input 1
+            "-shortest",              # Stop when the shortest stream ends
+            output_path
+        ], check=True, stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL)
+        
+        # If successful, remove the temp file
+        if os.path.exists(temp_output_path):
+            os.remove(temp_output_path)
+
+    except (subprocess.CalledProcessError, FileNotFoundError):
+        # Fallback: if ffmpeg fails (e.g., not installed or no audio stream),
+        # just rename the silent video to the final output path.
+        if os.path.exists(output_path):
+            os.remove(output_path)
+        os.rename(temp_output_path, output_path)
+
     return output_path
 
 
