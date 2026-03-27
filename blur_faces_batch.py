@@ -26,11 +26,11 @@ def is_valid_video_file(filepath):
     except Exception:
         return False
 
-def blur_face(image, detection, mp_face_detection):
-    """Apply Gaussian blur to the detected face region."""
+def get_expanded_bbox(image, detection, expansion_factor=0.5):
+    """Calculate an expanded face bbox as (x, y, width, height) in pixel coords."""
     h, w, _ = image.shape
     bboxC = detection.location_data.relative_bounding_box
-    
+
     # Calculate pixel coordinates
     x = int(bboxC.xmin * w)
     y = int(bboxC.ymin * h)
@@ -38,10 +38,9 @@ def blur_face(image, detection, mp_face_detection):
     h_box = int(bboxC.height * h)
 
     # Expand the bounding box
-    expansion_factor = 0.5
     padding_x = int(w_box * expansion_factor)
     padding_y = int(h_box * expansion_factor)
-    
+
     x1 = x - padding_x
     y1 = y - padding_y
     x2 = x + w_box + padding_x
@@ -52,26 +51,32 @@ def blur_face(image, detection, mp_face_detection):
     y1 = max(0, y1)
     x2 = min(w, x2)
     y2 = min(h, y2)
-    
-    # Recalculate x, y, width, height for ROI extraction
-    x = x1
-    y = y1
+
     width = x2 - x1
     height = y2 - y1
-    
+
+    if width <= 0 or height <= 0:
+        return None
+
+    return (x1, y1, width, height)
+
+
+def blur_bbox(image, bbox):
+    """Apply Gaussian blur to a bbox tuple (x, y, width, height)."""
+    x, y, width, height = bbox
+
     if width > 0 and height > 0:
         # Extract the region of interest (ROI)
         roi = image[y:y+height, x:x+width]
-        
-        # Apply Gaussian blur
-        # Kernel size (ksize) should be odd and positive. 
+
+        # Kernel size (ksize) should be odd and positive.
         # Adjust sigmaX based on the size of the ROI for stronger blur on larger faces
-        ksize = (99, 99) 
+        ksize = (99, 99)
         blurred_roi = cv2.GaussianBlur(roi, ksize, 30)
-        
+
         # Place the blurred ROI back into the image
         image[y:y+height, x:x+width] = blurred_roi
-        
+
     return image
 
 def process_video(input_path, output_path, args):
@@ -106,6 +111,8 @@ def process_video(input_path, output_path, args):
         
         print(f"Processing: {os.path.basename(input_path)}")
         
+        last_blur_bboxes = []
+
         with tqdm(total=total_frames, unit="frames") as pbar:
             while cap.isOpened():
                 success, image = cap.read()
@@ -121,9 +128,19 @@ def process_video(input_path, output_path, args):
                 image.flags.writeable = True
                 image = cv2.cvtColor(image, cv2.COLOR_RGB2BGR)
                 
+                current_blur_bboxes = []
                 if results.detections:
                     for detection in results.detections:
-                        image = blur_face(image, detection, mp_face_detection)
+                        bbox = get_expanded_bbox(image, detection)
+                        if bbox:
+                            current_blur_bboxes.append(bbox)
+                            image = blur_bbox(image, bbox)
+                    if current_blur_bboxes:
+                        last_blur_bboxes = current_blur_bboxes
+                elif last_blur_bboxes:
+                    # Fallback for detector misses: reuse previous frame blur regions.
+                    for bbox in last_blur_bboxes:
+                        image = blur_bbox(image, bbox)
                 
                 # Write the frame
                 out.write(image)
