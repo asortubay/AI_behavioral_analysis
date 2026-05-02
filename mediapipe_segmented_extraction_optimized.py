@@ -17,6 +17,7 @@ Usage:
 """
 
 import os
+os.environ['KMP_DUPLICATE_LIB_OK'] = 'True'
 import sys
 import cv2
 import numpy as np
@@ -33,6 +34,7 @@ from tqdm import tqdm
 from ultralytics import YOLO
 from multiprocessing import Pool, Process, Queue
 import queue
+import csv
 
 # Initialize MediaPipe holistic model
 mp_holistic = mp.solutions.holistic
@@ -636,9 +638,19 @@ def process_video_multi_pass_optimized(video_path, output_dir, log_file, save_se
         for args in worker_args:
             process_person_video_worker(args)
     
+    csv_path = os.path.join(video_output_dir, 'people_tracking_summary.csv')
+    try:
+        with open(csv_path, 'w', newline='') as f:
+            writer = csv.writer(f)
+            writer.writerow(['Merged_Person_ID', 'Original_IDs', 'Label'])
+            for pid in sorted(person_video_mapping.keys()):
+                writer.writerow([pid, pid, ''])
+        log(f"\nCreated editable tracking summary CSV: {csv_path}", log_file)
+    except Exception as e:
+        log(f"Error creating summary CSV: {e}", log_file)
+
     log(f"\nCompleted processing for {video_path}", log_file)
     return True
-
 
 def process_videos_in_directory(input_dir, output_dir, save_segmentation=False, num_processes=4):
     """Process all videos in input directory"""

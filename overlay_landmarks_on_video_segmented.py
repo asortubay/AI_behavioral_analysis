@@ -26,7 +26,9 @@ import datetime
 import argparse
 import traceback
 import gc
-from scipy.io import loadmat
+import csv
+import shutil
+from scipy.io import loadmat, savemat
 from tqdm import tqdm
 from mediapipe.framework.formats import landmark_pb2
 
@@ -212,8 +214,10 @@ def create_landmark_list(landmarks_array):
 
 
 def draw_landmarks_on_frame_multi_person(frame, multi_person_data, frame_number, 
-                                         show_segmentation=False, segmentation_alpha=0.3):
-    """Draw landmarks for multiple people on a single frame"""
+                                         show_segmentation=False, segmentation_alpha=0.3, labels_dict=None):
+    if labels_dict is None:
+        labels_dict = {}
+        
     if not multi_person_data or not multi_person_data.people_data:
         return frame
     
@@ -360,16 +364,39 @@ def draw_landmarks_on_frame_multi_person(frame, multi_person_data, frame_number,
     if show_segmentation:
         cv2.putText(frame, "SEGMENTATION ON", (10, 30),
                    cv2.FONT_HERSHEY_SIMPLEX, 0.7, (0, 255, 255), 2)
-    
+        
+    if labels_dict:
+        legend_y = 30
+        frame_width = frame.shape[1]
+        for pid in sorted(labels_dict.keys()):
+            label_text = f"P{pid}: {labels_dict[pid]}"
+            color_idx = (pid - 1) % len(PERSON_COLORS)
+            person_color = PERSON_COLORS[color_idx]
+            
+            # Draw a small filled color box
+            cv2.rectangle(frame, (frame_width - 250, legend_y - 15), (frame_width - 230, legend_y + 5), person_color, -1)
+            
+            # Draw a black text shadow for readability against bright backgrounds
+            cv2.putText(frame, label_text, (frame_width - 220 + 2, legend_y + 2),
+                       cv2.FONT_HERSHEY_SIMPLEX, 0.7, (0, 0, 0), 2)
+            # Draw the actual text
+            cv2.putText(frame, label_text, (frame_width - 220, legend_y),
+                       cv2.FONT_HERSHEY_SIMPLEX, 0.7, (255, 255, 255), 2)
+            
+            legend_y += 30
+
     return frame
 
 
 def overlay_landmarks_on_video(video_path, landmarks_dir, output_path, log_file,
                                show_segmentation=False, segmentation_alpha=0.3):
     """Overlay landmarks on video and save output"""
+
+    # Apply CSV edits before loading landmarks into memory
+    target_landmarks_dir, labels_dict = create_merged_landmarks_from_csv(landmarks_dir, log_file)
+
+    multi_person_data = load_multi_person_landmarks_from_mat(target_landmarks_dir, log_file)
     
-    # Load landmark data
-    multi_person_data = load_multi_person_landmarks_from_mat(landmarks_dir, log_file)
     if multi_person_data is None:
         log(f"Failed to load landmark data for {video_path}", log_file)
         return False
@@ -411,7 +438,7 @@ def overlay_landmarks_on_video(video_path, landmarks_dir, output_path, log_file,
             try:
                 # Overlay landmarks
                 frame_with_landmarks = draw_landmarks_on_frame_multi_person(
-                    frame, multi_person_data, frame_number, show_segmentation, segmentation_alpha)
+                    frame, multi_person_data, frame_number, show_segmentation, segmentation_alpha, labels_dict)
                 
                 # Write frame
                 out.write(frame_with_landmarks)
@@ -515,6 +542,88 @@ def process_videos_in_directory(input_dir, landmarks_dir, output_dir,
     
     log(f"Processing complete. Processed: {processed_count}, Skipped: {skipped_count}")
 
+def create_merged_landmarks_from_csv(landmarks_dir, log_file):
+    """
+    Reads the CSV, leaves originals untouched, and compiles valid/merged 
+    landmarks into a new 'merged_landmarks' subfolder.
+    Returns the path to the directory containing the final data to overlay.
+    """
+    csv_path = os.path.join(landmarks_dir, 'people_tracking_summary.csv')
+    merged_output_root = os.path.join(landmarks_dir, 'merged_landmarks')
+    labels_dict = {}  # <--- NEW
+    
+    if not os.path.exists(csv_path):
+        log(f"No CSV found at {csv_path}. Using raw landmarks.", log_file)
+        return landmarks_dir, labels_dict  # <--- UPDATED RETURN
+
+    log(f"Found tracking CSV. Compiling merged data into: {merged_output_root}", log_file)
+    os.makedirs(merged_output_root, exist_ok=True)
+
+    merges = {}
+    try:
+        with open(csv_path, 'r') as f:
+            reader = csv.DictReader(f)
+            for row in reader:
+                try:
+                    primary = int(row['Merged_Person_ID'].strip())
+                    originals = [int(x.strip()) for x in row['Original_IDs'].split(',') if x.strip()]
+                    if originals:
+                        merges[primary] = originals
+                    
+                    # === NEW LABEL PARSING START ===
+                    # Support both uppercase 'Label' and lowercase 'label'
+                    label_text = row.get('Label', row.get('label', '')).strip()
+                    if label_text:
+                        labels_dict[primary] = label_text
+                    # === NEW LABEL PARSING END ===
+                except (KeyError, ValueError):
+                    continue
+    except Exception as e:
+        log(f"Error parsing CSV {csv_path}: {e}", log_file)
+        return landmarks_dir, labels_dict 
+
+    landmark_types = ['face_landmarks', 'pose_landmarks', 'pose_world_landmarks',
+                      'left_hand_landmarks', 'right_hand_landmarks', 'segmentation_masks']
+
+    # Process only the IDs specified in the CSV
+    for primary_id, original_ids in merges.items():
+        primary_dir = os.path.join(merged_output_root, f'person_{primary_id}')
+        os.makedirs(primary_dir, exist_ok=True)
+
+        for l_type in landmark_types:
+            key_name = 'segmentation_masks' if l_type == 'segmentation_masks' else 'landmarks'
+            all_frames = []
+            all_data = []
+
+            # Gather data from all original IDs that map to this primary ID
+            for oid in original_ids:
+                fp = os.path.join(landmarks_dir, f'person_{oid}', f'{l_type}.mat')
+                if os.path.exists(fp):
+                    try:
+                        data = loadmat(fp)
+                        if 'frame_nos' in data and key_name in data:
+                            all_frames.append(data['frame_nos'].flatten())
+                            all_data.append(data[key_name])
+                    except Exception as e:
+                        log(f"Error loading {fp} for merge: {e}", log_file)
+
+            # If we found data, concatenate, sort by frame, and save to the new folder
+            if all_frames:
+                cat_frames = np.concatenate(all_frames)
+                cat_data = np.concatenate(all_data, axis=0)
+
+                # Sort chronologically to ensure smooth tracking
+                sort_idx = np.argsort(cat_frames)
+                sorted_frames = cat_frames[sort_idx].reshape(-1, 1)
+                sorted_data = cat_data[sort_idx]
+
+                out_path = os.path.join(primary_dir, f'{l_type}.mat')
+                savemat(out_path, {'frame_nos': sorted_frames, key_name: sorted_data})
+
+    log(f"Successfully compiled {len(merges)} valid people into merged_landmarks folder.", log_file)
+    
+    # Return the new directory so the overlay function reads from here
+    return merged_output_root, labels_dict
 
 def main():
     parser = argparse.ArgumentParser(
