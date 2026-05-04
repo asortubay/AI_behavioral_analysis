@@ -1,12 +1,16 @@
 from __future__ import annotations
 import os
+import importlib.util
 import cv2
 import csv
 import torch
 import numpy as np
 from PIL import Image
+from pathlib import Path
 from scipy.io import loadmat
-from tqdm import tqdm  # <--- Added tqdm
+from tqdm import tqdm
+
+from gazelle.model import get_gazelle_model
 
 # MediaPipe Pose landmarks for the head region
 HEAD_LANDMARK_INDICES = [0, 1, 2, 3, 4, 5, 6, 7, 8, 9, 10]
@@ -100,6 +104,9 @@ def process_video_directory(input_dir, landmarks_dir, output_dir, inout_thresh=0
 
     print("Loading Gaze-LLE model from PyTorch Hub...")
     model, transform = torch.hub.load('fkryan/gazelle', 'gazelle_dinov2_vitl14_inout')
+    # model, transform = get_gazelle_model("gazelle_dinov2_vitl14_inout")
+    # model.load_gazelle_state_dict(torch.load("gazelle-main\gazelle_dinov2_vitl14_inout_childplay.pt", weights_only=True))
+
     model = model.to(device)
     model.eval()
     print("Model loaded successfully.")
