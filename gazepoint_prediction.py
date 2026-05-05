@@ -127,6 +127,11 @@ def process_video_directory(input_dir, landmarks_dir, output_dir, inout_thresh=0
         print(f"\n{'='*60}")
         print(f"[{i}/{len(video_files)}] Processing Video: {file_name}")
         print(f"{'='*60}")
+
+        # Skip if output video already exists
+        if os.path.exists(output_path):
+            print(f"-> [SKIPPED] Output already exists for {file_name}: {output_path}")
+            continue
         
         # Load Labels and Landmark Data
         print("-> Loading tracking CSV and merging landmark data...")
