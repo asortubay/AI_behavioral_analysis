@@ -128,7 +128,8 @@ def create_segmented_videos_optimized(video_path, output_video_dir, log_file):
     frame_batch_numbers = []
     
     log(f"Processing frames with batch YOLO tracking (batch size: {BATCH_SIZE})...", log_file)
-    
+    print("Using custom tracker settings")
+
     with tqdm(total=total_frames, desc=f"Creating segmented videos (PASS 1)", unit="frame") as pbar:
         while frame_number < total_frames:
             ret, frame = cap.read()
@@ -137,7 +138,7 @@ def create_segmented_videos_optimized(video_path, output_video_dir, log_file):
             
             frame_batch.append(frame)
             frame_batch_numbers.append(frame_number)
-            
+
             if len(frame_batch) >= BATCH_SIZE or frame_number == total_frames - 1:
                 try:
                     # Native YOLO batched tracking with segmentation
@@ -145,7 +146,7 @@ def create_segmented_videos_optimized(video_path, output_video_dir, log_file):
                         source=frame_batch, 
                         persist=True, 
                         classes=[0], 
-                        tracker="botsort.yaml", 
+                        tracker="custom_tracker.yaml", 
                         verbose=False
                     )
                     
