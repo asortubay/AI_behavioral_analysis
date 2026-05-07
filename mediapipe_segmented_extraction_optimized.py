@@ -235,16 +235,19 @@ def create_person_mask(frame, bbox, padding=0.2):
     
     return mask
 
+def mask_frame_gray_background(frame, binary_mask):
+    """Replaces background with 50% gray almost instantly using NumPy broadcasting"""
+    # Ensure mask is 3 channels
+    if len(binary_mask.shape) == 2:
+        mask_3ch = np.stack([binary_mask] * 3, axis=-1)
+    else:
+        mask_3ch = binary_mask
 
-def blur_frame_except_person(frame, mask):
-    """Blur the frame everywhere except where the mask is 1"""
-    blurred_frame = cv2.GaussianBlur(frame, (BLUR_KERNEL_SIZE, BLUR_KERNEL_SIZE), BLUR_SIGMA)
-    inverse_mask = 1 - mask
-    mask_3ch = np.stack([mask] * 3, axis=2)
-    inverse_mask_3ch = np.stack([inverse_mask] * 3, axis=2)
-    result_frame = (frame * mask_3ch + blurred_frame * inverse_mask_3ch).astype(np.uint8)
+    # Create a solid gray background
+    gray_bg = np.full(frame.shape, 128, dtype=np.uint8)
     
-    return result_frame
+    # Fast NumPy where: if mask is 1 use frame, else use gray_bg
+    return np.where(mask_3ch == 1, frame, gray_bg)
 
 
 def create_segmented_videos_optimized(video_path, output_video_dir, log_file):
@@ -309,7 +312,7 @@ def create_segmented_videos_optimized(video_path, output_video_dir, log_file):
                         # For each detected person (OPTIMIZATION 2: only write when detected)
                         for person_id, bbox in current_people.items():
                             mask = create_person_mask(frame_batch[batch_idx], bbox, padding=0.1)
-                            segmented_frame = blur_frame_except_person(frame_batch[batch_idx], mask)
+                            segmented_frame = mask_frame_gray_background(frame_batch[batch_idx], mask)
                             
                             # Create VideoWriter if first time
                             if person_id not in person_videos:
