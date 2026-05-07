@@ -32,6 +32,7 @@ from ultralytics import YOLO
 from multiprocessing import Pool
 import csv
 
+
 # Initialize MediaPipe holistic model
 mp_holistic = mp.solutions.holistic
 
@@ -101,6 +102,7 @@ def mask_frame_gray_background(frame, binary_mask):
 def create_segmented_videos_optimized(video_path, output_video_dir, log_file):
     """
     PASS 1 OPTIMIZED: Create per-person segmented videos using YOLO tracking + segmentation.
+    Downsamples to 720p if the original video exceeds that resolution.
     """
     log(f"Starting PASS 1 (SEGMENTATION): Creating segmented videos for {os.path.basename(video_path)}", log_file)
     
@@ -110,11 +112,29 @@ def create_segmented_videos_optimized(video_path, output_video_dir, log_file):
         return {}
     
     fps = int(cap.get(cv2.CAP_PROP_FPS))
-    width = int(cap.get(cv2.CAP_PROP_FRAME_WIDTH))
-    height = int(cap.get(cv2.CAP_PROP_FRAME_HEIGHT))
+    orig_width = int(cap.get(cv2.CAP_PROP_FRAME_WIDTH))
+    orig_height = int(cap.get(cv2.CAP_PROP_FRAME_HEIGHT))
     total_frames = int(cap.get(cv2.CAP_PROP_FRAME_COUNT))
     
-    log(f"Video properties - FPS: {fps}, Resolution: {width}x{height}, Frames: {total_frames}", log_file)
+    # --- Downsampling Logic ---
+    TARGET_HEIGHT = 720
+    if orig_height > TARGET_HEIGHT:
+        scale = TARGET_HEIGHT / orig_height
+        width = int(orig_width * scale)
+        height = TARGET_HEIGHT
+        
+        # Video codecs generally prefer even dimensions
+        width = width - (width % 2)
+        height = height - (height % 2)
+        
+        log(f"Original resolution {orig_width}x{orig_height} exceeds 720p. Downsampling to {width}x{height}.", log_file)
+        needs_resize = True
+    else:
+        width = orig_width
+        height = orig_height
+        needs_resize = False
+
+    log(f"Processing Video properties - FPS: {fps}, Target Resolution: {width}x{height}, Frames: {total_frames}", log_file)
     
     person_videos = {}
     person_write_buffers = {}
@@ -135,6 +155,10 @@ def create_segmented_videos_optimized(video_path, output_video_dir, log_file):
             ret, frame = cap.read()
             if not ret:
                 break
+            
+            # Resize the frame immediately after reading to save batch memory
+            if needs_resize:
+                frame = cv2.resize(frame, (width, height), interpolation=cv2.INTER_AREA)
             
             frame_batch.append(frame)
             frame_batch_numbers.append(frame_number)
@@ -160,14 +184,14 @@ def create_segmented_videos_optimized(video_path, output_video_dir, log_file):
                             orig_shape = current_frame.shape[:2]
                             
                             for i, person_id in enumerate(track_ids):
-                                # Resize mask to match the frame size exactly
+                                # Resize mask to match the (now potentially downsampled) frame size exactly
                                 mask = masks[i]
                                 mask_resized = cv2.resize(mask, (orig_shape[1], orig_shape[0]), interpolation=cv2.INTER_NEAREST)
                                 binary_mask = (mask_resized > 0.5).astype(np.uint8)
                                 
                                 segmented_frame = mask_frame_gray_background(current_frame, binary_mask)
                                 
-                                # Initialize writer for new persons
+                                # Initialize writer for new persons using the target width and height
                                 if person_id not in person_videos:
                                     output_video_path = os.path.join(output_video_dir, f"person_{person_id}.mp4")
                                     fourcc = cv2.VideoWriter_fourcc(*'mp4v')
