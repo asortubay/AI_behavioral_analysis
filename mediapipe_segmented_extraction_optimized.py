@@ -249,12 +249,12 @@ def mask_frame_gray_background(frame, binary_mask):
     # Fast NumPy where: if mask is 1 use frame, else use gray_bg
     return np.where(mask_3ch == 1, frame, gray_bg)
 
-
 def create_segmented_videos_optimized(video_path, output_video_dir, log_file):
     """
     PASS 1 OPTIMIZED: Create per-person segmented videos with parallel YOLO detection.
     
     Optimizations:
+    - Downsamples to 720p if original exceeds that resolution to save memory/compute
     - Batch frame detection (process 8 frames at once)
     - Only write frames when person is detected
     - Buffer writes to reduce I/O overhead
@@ -269,11 +269,29 @@ def create_segmented_videos_optimized(video_path, output_video_dir, log_file):
         return {}
     
     fps = int(cap.get(cv2.CAP_PROP_FPS))
-    width = int(cap.get(cv2.CAP_PROP_FRAME_WIDTH))
-    height = int(cap.get(cv2.CAP_PROP_FRAME_HEIGHT))
+    orig_width = int(cap.get(cv2.CAP_PROP_FRAME_WIDTH))
+    orig_height = int(cap.get(cv2.CAP_PROP_FRAME_HEIGHT))
     total_frames = int(cap.get(cv2.CAP_PROP_FRAME_COUNT))
     
-    log(f"Video properties - FPS: {fps}, Resolution: {width}x{height}, Frames: {total_frames}", log_file)
+    # --- Downsampling Logic ---
+    TARGET_HEIGHT = 720
+    if orig_height > TARGET_HEIGHT:
+        scale = TARGET_HEIGHT / orig_height
+        width = int(orig_width * scale)
+        height = TARGET_HEIGHT
+        
+        # Ensure dimensions are even for video codec compatibility
+        width = width - (width % 2)
+        height = height - (height % 2)
+        
+        log(f"Original resolution {orig_width}x{orig_height} exceeds 720p. Downsampling to {width}x{height}.", log_file)
+        needs_resize = True
+    else:
+        width = orig_width
+        height = orig_height
+        needs_resize = False
+
+    log(f"Video properties - FPS: {fps}, Target Resolution: {width}x{height}, Frames: {total_frames}", log_file)
     
     person_tracker = PersonTracker()
     person_videos = {}
@@ -295,6 +313,10 @@ def create_segmented_videos_optimized(video_path, output_video_dir, log_file):
             if not ret:
                 break
             
+            # Resize the frame immediately after reading
+            if needs_resize:
+                frame = cv2.resize(frame, (width, height), interpolation=cv2.INTER_AREA)
+            
             # Accumulate frames for batch processing
             frame_batch.append(frame)
             frame_batch_numbers.append(frame_number)
@@ -311,10 +333,10 @@ def create_segmented_videos_optimized(video_path, output_video_dir, log_file):
                         
                         # For each detected person (OPTIMIZATION 2: only write when detected)
                         for person_id, bbox in current_people.items():
-                            mask = create_person_mask(frame_batch[batch_idx], bbox, padding=0.1)
+                            mask = create_person_mask(frame_batch[batch_idx], bbox, padding=0)
                             segmented_frame = mask_frame_gray_background(frame_batch[batch_idx], mask)
                             
-                            # Create VideoWriter if first time
+                            # Create VideoWriter if first time using the target width and height
                             if person_id not in person_videos:
                                 output_video_path = os.path.join(output_video_dir, f"person_{person_id}.mp4")
                                 fourcc = cv2.VideoWriter_fourcc(*'mp4v')

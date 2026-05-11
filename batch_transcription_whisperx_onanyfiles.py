@@ -40,6 +40,7 @@ def process_media_file(input_file, audio_dir, output_dir, model, model_a, metada
 
     # 1. Extract audio if it doesn't already exist in the audio folder
     if not os.path.exists(audio_file):
+        print("converting audio")
         extract_audio(input_file, audio_file)
 
     # 2. Load and transcribe the audio
