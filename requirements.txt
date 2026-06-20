@@ -1,7 +1,7 @@
 # Core dependencies for AI Behavioral Analysis Pipeline
 # Python version: 3.10.x
 
-transformers==4.53.0
+transformers==5.0.0rc3
 
 # Transcription
 whisperx==3.3.0
